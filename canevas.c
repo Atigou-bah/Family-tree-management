@@ -253,11 +253,68 @@ Individu getByName(Genealogie g, Chaine name, Date naissance)
 //     && (pos<g->nb_individus-1 => chaineCompare(g[pos+1]->nom,s)>=0)
 void insert(Genealogie g, Nat pos, Chaine s, Ident p, Ident m, Date n, Date d)
 {
+	if ( pos >= 1 && chaineCompare(g->tab[pos-1]->nom, s) <= 0 &&
+        (pos < g->nb_individu-1 || chaineCompare(g->tab[pos+1]->nom, s) >= 0))  
+	{
+		Individu Individu_to_add = nouvIndividu(g->id_cur,s,p,m,n,d);
+		if (g->taille_max_tab == pos)
+		{
+			g->tab = REALLOC(g->tab,Individu,pos); 
+			g->tab[pos] = Individu_to_add; 
+			g->rang[g->nb_individu] = pos; 
+			
+		}
+		else{
+			g->tab[pos] = Individu_to_add; 
+			for (Nat i = g->nb_individu; i > pos; i--)
+			{
+				g->tab[i] = g->tab[i-1]; 
+				g->rang[i-1]+=1; 
+			}
+			
+			
+
+		}
+		g->taille_max_tab+=1; 
+		g->nb_individu+=1; 
+		g->rang[g->nb_individu] = pos; 
+	}
+	
 }
 
 // PRE: getByIdent(g,x)!=NULL) && getByIdent(g,filsa)!=NULL &&  (pp!=omega || mm!=omega)
 void adjFils(Genealogie g, Ident idx, Ident fils, Ident pp, Ident mm)
 {
+	if ( (getByIdent(g,idx) != NULL) && getByIdent(g,fils) != NULL && (pp != omega || mm != omega) )
+	{
+		Individu Individu_idx = getByIdent(g,idx); 
+		Date naiss_idx = naissIndividu(Individu_idx); 
+		Individu Individu_fils  = getByIdent(g,fils);
+		Date naiss_fils = naissIndividu(Individu_fils); 
+		if (compDate(naiss_fils,naiss_idx) > 0 ) // le cas ou le fils est plus age que celui qu'on ajoute donc il reste en tete  
+		{
+			Individu pere = getByIdent(g,pp); 
+			Individu mere = getByIdent(g,mm);
+			pere->icadet = idx;  
+			mere->icadet = idx; 
+			pere->ifaine = fils; 
+			mere->ifaine = fils; 
+			Individu_fils->icadet = idx; 
+			Individu_idx->imere = mm; 
+			Individu_idx->ipere = pp; 
+		}
+		else{ // le cas ou le fils qu'on ajoute c'est l'ainé 
+			Individu pere = getByIdent(g,pp); 
+			Individu mere = getByIdent(g,mm);
+			pere->ifaine = idx; 
+			mere->ifaine = idx; 
+			Individu_idx->icadet = fils; 
+			Individu_idx->imere = mm; 
+			Individu_idx->ipere = pp; 
+		}
+		
+	}
+	
 }
 
 //PRE:  (p==omega || getByIdent(g,p)!=NULL) && (m==omega || getByIdent(g,m)!=NULL) &&
