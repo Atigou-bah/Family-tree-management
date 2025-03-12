@@ -28,7 +28,7 @@ typedef struct s_individu {
 
 typedef struct s_genealogie {
 	Individu* tab;				// tableau des individus tri�s par nom
-    Nat nb_individu;  
+    Nat nb_individus;  
     Nat id_cur; 
     Nat taille_max_tab;
     Nat* rang;    
@@ -36,8 +36,8 @@ typedef struct s_genealogie {
 } *Genealogie;
 
 // DEFINIR ICI VOS CONSTANTES
-#define TAILLE_MAX_TAB 20
-#define TAILLE_MAX_RANG 10 
+#define TAILLE_MAX_TAB 100
+#define TAILLE_MAX_RANG 100
 Date d_null = {0,0,0};
 
 
@@ -103,10 +103,10 @@ Ent compDate(Date d1, Date d2)
 void genealogieInit(Genealogie *g)
 {
 	*g = MALLOC(struct s_genealogie); 
-    (*g)->id_cur = 0; 
-    (*g)->nb_individu = 0; 
+    (*g)->id_cur = 1; 
+    (*g)->nb_individus = 0; 
     (*g)->tab = MALLOCN(Individu,TAILLE_MAX_TAB); 
-    (*g)->rang = MALLOCN(Nat, TAILLE_MAX_RANG); 
+    (*g)->rang = MALLOCN(Ident, TAILLE_MAX_RANG); 
     (*g)->taille_max_rang = TAILLE_MAX_RANG; 
     (*g)->taille_max_tab = TAILLE_MAX_TAB;  
 
@@ -115,7 +115,7 @@ void genealogieInit(Genealogie *g)
 //PRE: None
 void genealogieFree(Genealogie *g)
 {
-    for (Nat i = 0; i < TAILLE_MAX_TAB; i++)
+    for (Nat i = 0; i < (*g)->nb_individus; i++)
     {
         freeIndividu((*g)->tab[i]); 
     }
@@ -128,7 +128,12 @@ void genealogieFree(Genealogie *g)
 //PRE: None
 Individu nouvIndividu(Ident i, Chaine s, Ident p, Ident m, Date n, Date d)
 {   
-    Individu Personne = MALLOC(struct s_individu); 
+    Individu Personne = (Individu)MALLOC(struct s_individu); 
+	if (Personne == NULL)
+	{
+		printf("erreur d'allocation memoire de l'individu \n"); 
+	}
+	
     Personne->id = i; 
     Personne->imere = m; 
     Personne->ipere = p; 
@@ -149,51 +154,47 @@ void freeIndividu(Individu id)
 // Selecteur
 // ////////////////////
 Chaine nomIndividu(Individu ind) { if (ind != NULL) {return ind->nom;} }
-Date naissIndividu(Individu ind) { if (ind != NULL){ Date d = {ind->naiss.jour,ind->naiss.mois,ind->naiss.annee};return d;} return d_null ;}
-Nat cardinal(Genealogie g) { return g->nb_individu; }
+Date naissIndividu(Individu ind) { if (ind != NULL){ return ind->naiss; } return d_null ;}
+Nat cardinal(Genealogie g) { return g->nb_individus; }
 Individu kieme(Genealogie g, Nat k) { return g->tab[k]; }
 
 //PRE: None
 Individu getByIdent(Genealogie g, Ident i)
 {
-    if (i < 1 || i > TAILLE_MAX_TAB) {
-        return NULL;  // Identifiant invalide
-    }
 
-    Nat indice = g->rang[i-1];
-    if (indice < 0 || indice >= TAILLE_MAX_TAB) {
-        return NULL;  // Indice hors limites
+    if (i <= 0 || i >= g->id_cur) {  
+        return NULL; 
     }
-
+	Nat indice = g->rang[i-1]; 
     return kieme(g, indice); 
 }
+
 
 //PRE: None
 Nat getPos(Genealogie g, Chaine name)
 {   
-    if (g->nb_individu == 0)
+    if (g->nb_individus == 0)
     {
         return 0; 
     }
 
-    Nat gauche = 0; 
-    Nat droite = g->nb_individu;
+    Ent gauche = 0; 
+    Ent droite = g->nb_individus;
+
 
     while (gauche < droite)
     {  
        
-        Nat milieu = (gauche + droite) / 2; 
+        Ent milieu = (gauche + droite) / 2; 
         
-        int cmp = chaineCompare(g->tab[milieu]->nom, name);
-        
-        if (cmp == 0)
+        if (chaineCompare(g->tab[milieu]->nom, name) == 0 )
         {
             return milieu;  
         }
-        else if (cmp < 0) 
+        else if (chaineCompare(g->tab[milieu]->nom, name) < 0) 
         {
            
-            gauche = milieu + 1; 
+            gauche = milieu + 1 ; 
         }
         else 
         {
@@ -203,70 +204,50 @@ Nat getPos(Genealogie g, Chaine name)
     }
     
    
-    return gauche; 
+    return (Nat)gauche; 
 }
 
 
-//PRE: None
 Individu getByName(Genealogie g, Chaine name, Date naissance)
 {
-{
-    Nat gauche = 0; 
-    Nat droite = g->nb_individu - 1;
+    // Si naissance est égale à {0,0,0}, rechercher le plus jeune individu avec le nom
     Date date_0 = {0,0,0}; 
 
-    // Si naissance est égale à {0,0,0}, rechercher le plus jeune individu avec le nom
+    Nat pos = getPos(g, name);
+
+    // Si naissance est {0,0,0}, rechercher le plus jeune individu avec ce nom
     if (compDate(date_0, naissance) == 0) {
         Individu result = NULL;  
 
+        // Parcourir les individus à partir de la position retournée par getPos
+        while (pos < g->nb_individus && chaineCompare(g->tab[pos]->nom, name) == 0) {
 
-        while (gauche < droite) {
-            Nat milieu = (droite + gauche) / 2;
-
-            if (chaineCompare(g->tab[milieu]->nom,name)) {
-
-                if (result == NULL || compDate(g->tab[milieu]->naiss, result->naiss) > 0) {
-                    result = g->tab[milieu];
-                }
-
-                
-                gauche = milieu;
+            if (result == NULL || compDate(g->tab[pos]->naiss, result->naiss) > 0) {
+                result = g->tab[pos];  
             }
-            else if (chaineCompare(g->tab[milieu]->nom,name) > 0 ) {
-                droite = milieu;
-            }
-            else {
-                gauche = milieu + 1; ;
-            }
+            pos++; 
         }
 
         return result;  
     }
     else {
-
-        while (gauche < droite) {
-            Nat milieu = (droite + gauche) / 2;
-
-            if (chaineCompare(g->tab[milieu]->nom,name) == 0  && compDate(g->tab[milieu]->naiss, naissance) == 0) {
-                return g->tab[milieu];  // L'individu exact a été trouvé
+     
+        while (pos < g->nb_individus && chaineCompare(g->tab[pos]->nom, name) == 0) {
+            if (compDate(g->tab[pos]->naiss, naissance) == 0) {
+                return g->tab[pos];  
             }
-            else if (chaineCompare(g->tab[milieu]->nom,name) > 0 ) {
-                droite = milieu;
-            }
-            else {
-                gauche = milieu;
-            }
+            pos++; 
         }
 
         return NULL;  // Aucun individu trouvé
     }
 }
 
+
    
     
  
     
-}
 
 //PRE: (pos>=1 => chaineCompare(g[pos-1]->nom,s)<=0) 
 //     && (pos<g->nb_individus-1 => chaineCompare(g[pos+1]->nom,s)>=0)
@@ -277,23 +258,21 @@ void insert(Genealogie g, Nat pos, Chaine s, Ident p, Ident m, Date n, Date d)
 		if (g->taille_max_tab == pos)
 		{
             g->tab = REALLOC(g->tab, Individu, g->taille_max_tab * 2); // Doubler la taille du tableau
+			g->rang = REALLOC(g->rang,Ident,g->taille_max_rang *2 );
             g->taille_max_tab *= 2; 
+			g->taille_max_rang *=2;
 			
 		}
-		else{
-			for (Nat i = g->nb_individu; i > pos; i--)
+			for (Nat i = g->nb_individus; i > pos; i--)
 			{
 				g->tab[i] = g->tab[i-1]; 
-				g->rang[i-1]+=1; 
+				g->rang[g->tab[i]->id-1]=i; 
 			}
 			g->tab[pos] = Individu_to_add; 
 			
-			
-
-		}
 		 
-		g->nb_individu+=1; 
-		g->rang[g->nb_individu-1] = pos; 
+		g->nb_individus+=1; 
+		g->rang[g->id_cur+1] = pos; 
         g->id_cur+=1; 
 	}
 	
@@ -302,19 +281,20 @@ void insert(Genealogie g, Nat pos, Chaine s, Ident p, Ident m, Date n, Date d)
 // PRE: getByIdent(g,x)!=NULL) && getByIdent(g,filsa)!=NULL &&  (pp!=omega || mm!=omega)
 void adjFils(Genealogie g, Ident idx, Ident fils, Ident pp, Ident mm)
 {	
-
 		Individu Individu_idx = getByIdent(g,idx); 
 		Date naiss_idx = naissIndividu(Individu_idx); 
-		Individu Individu_fils  = getByIdent(g,fils);
-		Date naiss_fils = naissIndividu(Individu_fils); 
 		Individu pere = getByIdent(g,pp); 
 		Individu mere = getByIdent(g,mm);
 
+		if (fils != 0 )
+		{
+				
+		Individu Individu_fils  = getByIdent(g,fils);
+		Date naiss_fils = naissIndividu(Individu_fils); 
+
+
 		if (compDate(naiss_fils,naiss_idx) > 0  && pere != NULL && mere != NULL) // le cas ou le fils est plus age que celui qu'on ajoute donc il reste en tete  
 		{
-
-			pere->icadet = idx;  
-			mere->icadet = idx; 
 			pere->ifaine = fils; 
 			mere->ifaine = fils; 
 			Individu_fils->icadet = idx; 
@@ -331,6 +311,29 @@ void adjFils(Genealogie g, Ident idx, Ident fils, Ident pp, Ident mm)
 			Individu_idx->ipere = pp; 
 			
 		}
+
+		}
+		else {
+			if (mere == omega && pere != omega)
+			{
+			pere->ifaine = idx; 
+			Individu_idx->icadet = fils; 
+			Individu_idx->imere = mm; 
+			Individu_idx->ipere = pp; 
+			}
+			else if(pere== omega && mere != omega){
+			mere->ifaine = idx; 
+			Individu_idx->icadet = fils; 
+			Individu_idx->imere = mm; 
+			Individu_idx->ipere = pp; 
+
+			}
+			
+
+
+		}
+
+
 
 		
 		
@@ -472,66 +475,71 @@ int main()
 	// Famille Potter
 	Date jhen = { 16,2,1867 }; Date jhed = { 21,11,1932 };
 	Ident ihep = adj(g, "Henri", 0, 0, jhen, jhed);
-    printf("%d %d\n", g->id_cur, g->nb_individu);
-   
+
 	Date jfn = { 30,7,1905 }; Date jfd = { 2,3,1979 };
 	Ident ijfl = adj(g, "Fleamont", ihep, 0, jfn, jfd);
-    printf("%d %d\n", g->id_cur, g->nb_individu);
 
 	Date jeu = { 12,6,1907 }; Date jed = { 14, 1,1979 };
 	Ident ijm = adj(g, "Euphemia", 0, 0, jeu, jed);
-    printf("%d %d %d\n", g->id_cur, g->nb_individu, g->tab[1]->ifaine);
 
 
 	Date jpn = { 27, 3, 1960 }; Date jpd = { 29, 7, 1981 };
 	Ident ijp = adj(g, "James", ijfl, ijm, jpn, jpd);
-	printf("%d %d\n", g->id_cur, g->nb_individu);
 
 
 	Date lpn = { 30, 1, 1960 }; Date lpd = { 29, 7, 1981 };
 	Ident ilp = adj(g, "Lily", 0, 0, lpn, lpd);
-    printf("%d %d\n", g->id_cur, g->nb_individu);
 
 	Date hn = { 31, 7, 1980 };
 	Ident ih = adj(g, "Harry", ijp, ilp, hn, dnull);
-	printf("%d %d\n", g->id_cur, g->nb_individu);
 
 	// Famille Weasley
 	Date an = { 6, 2, 1950 };
 	Ident iaw = adj(g, "Arthur", 0, 0, an, dnull);
-	printf("%d %d\n", g->id_cur, g->nb_individu);
 
 
 	Date dpre = { 8,4, 1910 }; Date ddpre = { 23, 10, 1968 };
 	Ident ipre = adj(g, "Prewett", 0, 0, dpre, ddpre);
-    printf("%d %d\n", g->id_cur, g->nb_individu);
 
 	Date dfab = { 12, 5, 1946 }; Date ddfab = { 21,12, 1982 };
 	Ident ifab = adj(g, "Fabian", ipre, 0, dfab, ddfab);
-    printf("%d %d\n", g->id_cur, g->nb_individu);
 
 	Date mn = { 30, 10, 1949 };
 	Ident imw = adj(g, "Molly", ipre, 0, mn, dnull);
-    printf("%d %d\n", g->id_cur, g->nb_individu);
-	    printf("%d %d %d\n", g->id_cur, g->nb_individu, g->tab[9]->ifaine);
 
-	/*
 
 	// ajouter ici les autres individus
-	Ident ig = omega;  // Ginny
-	Ident irose = omega; // Rose
-	Ident ir = omega; // Ron
-	Ident ia2 = omega; // Albus
-	Ident ibill = omega; // Bill
-	Ident ij = omega; // James (son of Harry)
-	Ident ihg = omega; // Hermione
+	Date gn = {11,8,1981}; 
+	Ident ig = adj(g,"Ginny",iaw,imw,gn,d_null);  // Ginny
+
+	Date rn = {1,3,1980};
+	Ident ir = adj(g,"Ron",iaw,imw,rn,d_null); // Ron
+
+	Date hr = {19,9,1980}; 
+	Ident ihg = adj(g,"Hermione",0,0,hr,dnull); // Hermione
+
+	Date al = {15,8,2006}; 
+	Ident ia2 = adj(g,"Albus",ih,ig,al,d_null ); // Albus
+
+	Date bl = {29,11,1970}; 
+	Ident ibill = adj(g,"Bill",iaw,imw,bl,d_null); // Bill
+
+	Date js = {1,5,2005}; 
+	Ident ij = adj(g,"James",ih,ig,js,dnull); // James (son of Harry)
+
+
+	Date rs = {6,8,2006};
+	Ident irose = adj(g,"Rose",0,0,rs,d_null); // Rose
 
 	for (Nat i = 0; i < cardinal(g); i++) {
 		printf("%s\n", nomIndividu(kieme(g,i)));
 	}
 	printf("nb_individus: %d\n", cardinal(g));
 	printf("Identifiant de Fabian: %u (must be 9)\n", ifab);
-	printf("Identifiant de Arthur: %u (must be 7)\n", iaw);
+	printf("Identifiant de Arthur: %u (must be 7)\n", iaw); 
+	
+
+	/*
 
 	printf("\nAdding more people:\n");
 	Date dgid = { 7, 2, 1945 }; Date ddgid = { 21,12, 1982 };
