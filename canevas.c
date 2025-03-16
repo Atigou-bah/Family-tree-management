@@ -18,11 +18,11 @@ typedef struct s_individu {
 	Car nom[LG_MAX];
     Date naiss; 
     Date deces; 
-    Nat id; 
-    Nat ipere; 
-    Nat imere; 
-    Nat icadet; 
-    Nat ifaine; 
+    Ident id; 
+    Ident ipere; 
+    Ident imere; 
+    Ident icadet; 
+    Ident ifaine; 
 	
 } *Individu;
 
@@ -79,6 +79,8 @@ void affiche_parente(Genealogie g, Ident x, Chaine buf);
 void affiche_descendance(Genealogie g, Ident x, Chaine buf);
 
 // PROTOTYPES DE VOS FONCTIONS INTERMEDIAIRES
+Nat nb_freres_soeurs(Genealogie g, Ident x);
+Ident tab_freres_soeurs(Genealogie g, Ident x, Ident *tab_id);
 
 
 
@@ -166,7 +168,7 @@ Individu getByIdent(Genealogie g, Ident i)
         return NULL; 
     }
 	Nat indice = g->rang[i-1]; 
-    return kieme(g, indice); 
+    return g->tab[indice];  
 }
 
 
@@ -255,89 +257,61 @@ void insert(Genealogie g, Nat pos, Chaine s, Ident p, Ident m, Date n, Date d)
 {
 
 		Individu Individu_to_add = nouvIndividu(g->id_cur,s,p,m,n,d);
-		if (g->taille_max_tab == pos)
+		if (g->taille_max_tab >= pos)
 		{
-            g->tab = REALLOC(g->tab, Individu, g->taille_max_tab * 2); // Doubler la taille du tableau
-			g->rang = REALLOC(g->rang,Ident,g->taille_max_rang *2 );
-            g->taille_max_tab *= 2; 
+			g->taille_max_tab *= 2; 
 			g->taille_max_rang *=2;
+            g->tab = REALLOC(g->tab, Individu, g->taille_max_tab); // Doubler la taille du tableau
+			g->rang = REALLOC(g->rang,Ident,g->taille_max_rang);
+
 			
 		}
-			for (Nat i = g->nb_individus; i > pos; i--)
-			{
-				g->tab[i] = g->tab[i-1]; 
-				g->rang[g->tab[i]->id-1]=i; 
-			}
-			g->tab[pos] = Individu_to_add; 
-			
-		 
+		for (Nat i = g->nb_individus; i > pos; i--)
+		{
+			g->tab[i] = g->tab[i-1]; 
+			g->rang[g->tab[i]->id-1]=i; 
+		}
+
+		g->tab[pos] = Individu_to_add;  
+		g->rang[Individu_to_add->id - 1] = pos; 
 		g->nb_individus+=1; 
-		g->rang[g->id_cur+1] = pos; 
         g->id_cur+=1; 
 	}
 	
 
 
 // PRE: getByIdent(g,x)!=NULL) && getByIdent(g,filsa)!=NULL &&  (pp!=omega || mm!=omega)
-void adjFils(Genealogie g, Ident idx, Ident fils, Ident pp, Ident mm)
-{	
-		Individu Individu_idx = getByIdent(g,idx); 
-		Date naiss_idx = naissIndividu(Individu_idx); 
-		Individu pere = getByIdent(g,pp); 
-		Individu mere = getByIdent(g,mm);
-
-		if (fils != 0 )
-		{
-				
-		Individu Individu_fils  = getByIdent(g,fils);
-		Date naiss_fils = naissIndividu(Individu_fils); 
-
-
-		if (compDate(naiss_fils,naiss_idx) > 0  && pere != NULL && mere != NULL) // le cas ou le fils est plus age que celui qu'on ajoute donc il reste en tete  
-		{
-			pere->ifaine = fils; 
-			mere->ifaine = fils; 
-			Individu_fils->icadet = idx; 
-			Individu_idx->imere = mm; 
-			Individu_idx->ipere = pp; 
-		}
-		else if ( mere != NULL && pere != NULL)
-		{
-		 // le cas ou le fils qu'on ajoute c'est l'ainé 
-			pere->ifaine = idx; 
-			mere->ifaine = idx; 
-			Individu_idx->icadet = fils; 
-			Individu_idx->imere = mm; 
-			Individu_idx->ipere = pp; 
-			
-		}
-
-		}
-		else {
-			if (mere == omega && pere != omega)
-			{
-			pere->ifaine = idx; 
-			Individu_idx->icadet = fils; 
-			Individu_idx->imere = mm; 
-			Individu_idx->ipere = pp; 
-			}
-			else if(pere== omega && mere != omega){
-			mere->ifaine = idx; 
-			Individu_idx->icadet = fils; 
-			Individu_idx->imere = mm; 
-			Individu_idx->ipere = pp; 
-
-			}
-			
-
-
-		}
-
-
-
-		
-		
-	}
+void adjFils(Genealogie g, Ident idx, Ident fils, Ident p, Ident m) {
+    Individu enfant = getByIdent(g, idx);
+    Individu premier_fils = getByIdent(g, fils);
+    Individu pere = (p != omega) ? getByIdent(g, p) : NULL;
+    Individu mere = (m != omega) ? getByIdent(g, m) : NULL;
+   
+    
+    if (enfant == NULL || premier_fils == NULL) return;
+    if (enfant == premier_fils) return; 
+   
+    
+    if (compDate(enfant->naiss, premier_fils->naiss) < 0) {
+        enfant->icadet = fils; 
+        if (pere) pere->ifaine = idx;
+        if (mere) mere->ifaine = idx;
+        return;
+    }
+   
+    
+    Individu precedent = premier_fils;
+    Individu suivant = getByIdent(g, precedent->icadet);
+    while (precedent->icadet != omega && !(compDate(enfant->naiss, suivant->naiss) < 0)) {
+        Individu suivant = getByIdent(g, precedent->icadet);
+        if (suivant == enfant) return; 
+        precedent = suivant;
+    }
+   
+    // Insérer dans la liste
+    enfant->icadet = precedent->icadet;
+    precedent->icadet = idx;
+}
 	
 
 
@@ -345,25 +319,32 @@ void adjFils(Genealogie g, Ident idx, Ident fils, Ident pp, Ident mm)
 //      !freres_soeurs(g,p,m) && getByIdent(g,p)->ifaine == getByIdent(g,m)->ifaine &&
 //      compDate(getByIdent(g,p)->naiss,n)<0 && compDate(getByIdent(g,m)->naiss,n)<0
 Ident adj(Genealogie g, Chaine s, Ident p, Ident m, Date n, Date d)
-{	
-	// valeurs interdites
-	if (s == NULL || s[0] == 0 || n.jour == 0 || n.mois == 0 || n.annee == 0) return omega;
-    Nat posi = getPos(g,s); 
+{
+    Nat pos = getPos(g, s);
+    Ident id = g->id_cur;
+    insert(g, pos, s, p, m, n, d);
 
-	insert(g,posi,s,p,m,n,d);  
-    
- 
-    if ( p!= omega)
-    {
-	    adjFils(g, g->id_cur -1, getByIdent(g,p)->ifaine, p,m);  
+    if (p != omega && getByIdent(g, p)->ifaine != omega) {
+        adjFils(g, id, getByIdent(g, p)->ifaine, p, m);
     }
-    else if ( m != omega)
-    {
-        adjFils(g, g->id_cur -1, getByIdent(g,m)->ifaine, p,m);
+    else if (p != omega) {
+        getByIdent(g, p)->ifaine = id;
+        if (m != omega) {
+            getByIdent(g, m)->ifaine = id;
+        }
     }
-    
 
-	return g->tab[posi]->id;
+    if (m != omega && getByIdent(g, m)->ifaine != omega) {
+        adjFils(g, id, getByIdent(g, m)->ifaine, p, m);
+    }
+    else if (m != omega) {
+        if (p != omega) {
+            getByIdent(g, p)->ifaine = id;
+        }
+        getByIdent(g, m)->ifaine = id;
+    }
+
+    return id;
 }
 
 
@@ -376,42 +357,179 @@ Ident adj(Genealogie g, Chaine s, Ident p, Ident m, Date n, Date d)
 //PRE: None
 void affiche_freres_soeurs(Genealogie g, Ident x, Chaine buff)
 {
-	buff[0] = '\0';
+	Individu idx = getByIdent(g,x); 
+	Nat i = 0; 
+
+	for (i = 0; i < g->nb_individus; i++)
+	{
+		if (chaineCompare(g->tab[i]->nom,idx->nom) != 0 &&  (g->tab[i]->imere == idx->imere || g->tab[i]->ipere == idx->ipere)  )
+		{	
+			chaineConcat(buff,g->tab[i]->nom);   
+			chaineConcat(buff, " ");  
+		}
+	}
+	buff[i] = '\0'; 
 }
 
 //PRE: None
 void affiche_enfants(Genealogie g, Ident x, Chaine buff)
 {
-	buff[0] = '\0';
+	Nat i = 0; 
+	for ( i = 0; i < g->nb_individus; i++)
+	{
+		if (g->tab[i]->ipere == x || g->tab[i]->imere == x)
+		{
+			chaineConcat(buff,g->tab[i]->nom);   
+			chaineConcat(buff, " ");
+		}
+		
+	}
+	
+	buff[i] = '\0';
 }
 
 //PRE: None
 void affiche_cousins(Genealogie g, Ident x, Chaine buff)
 {
-	buff[0] = '\0';
+	Individu idx = getByIdent(g,x);
+
+	if (idx->imere != omega) {
+		Individu mere = getByIdent(g,idx->imere);
+
+		Individu parent = NULL;
+		if (mere->ipere != omega) parent = getByIdent(g,mere->ipere);
+		else if (mere->imere != omega) parent = getByIdent(g,mere->imere);
+		if (parent != NULL) {
+			Individu aine = getByIdent(g, parent->ifaine);
+			
+			if (aine != NULL) {
+				while (aine != omega) {
+					affiche_enfants(g, aine->id, buff); 
+					aine = getByIdent(g, aine->icadet); 
+				}
+			}
+		}
+	} 
+	
+	else if (idx->ipere != omega) {
+		Individu pere = getByIdent(g,idx->ipere);
+
+		Individu parent = NULL;
+		if (pere->ipere != omega) parent = getByIdent(g,pere->ipere);
+		else if (pere->imere != omega) parent = getByIdent(g,pere->imere);
+		if (parent != NULL) {
+			Individu aine = getByIdent(g, parent->ifaine); 
+			if (aine != NULL) {
+				while (aine != omega) {
+					affiche_enfants(g, aine->id, buff); 
+					aine = getByIdent(g, aine->icadet); 
+				}
+			}
+		}
+	} 
 }
 
 //PRE: None
-void affiche_oncles(Genealogie g, Ident x, Chaine buff)
-{
-	buff[0] = '\0';
+void affiche_oncles(Genealogie g, Ident x, Chaine buff){
+
+	Individu idx = getByIdent(g,x); 
+	if (idx->ipere != NULL)
+	{
+		affiche_freres_soeurs(g,idx->ipere,buff); 
+	
+	}
+	if (idx->imere != NULL)
+	{
+		affiche_freres_soeurs(g,idx->imere,buff); 
+	}
+	
 }
 
 // 
 /// PARTIE 3: Cr�er Liens de parente 
 /// ///////////////////////////////////////////////////////
 /// 
+// PRE (getByIdent(g,x)->imere != NULL || getByIdent(g,x)->ipere != NULL) && (getByIdent(g,y)->imere != NULL || getByIdent(g,y)->ipere != NULL) 
+// && (getByIdent(g,x)->imere == getByIdent(g,y)->imere || getByIdent(g,x)->ipere == getByIdent(g,y)->ipere  )
 void deviennent_freres_soeurs(Genealogie g, Ident x, Ident y)
 {
+	Individu idx = getByIdent(g,y);
+	Individu idy = getByIdent(g,x);
+	Individu parentx = NULL; 
+	Individu parenty = NULL; 
+
+	if (idx->icadet != NULL && idy->icadet != NULL)
+	{ 
+		Individu cadetx = getByIdent(g,idx->icadet);
+		Individu cadety = getByIdent(g,idy->icadet); 
+		if (idx->ipere == omega) parentx = getByIdent(g,idx->imere); 
+		else if (idx->imere == omega){ parentx = getByIdent(g,idx->ipere);}
+		
+
+		
+		adjFils(g,idx->id,parentx->ifaine,idx->ipere, idx->imere); 
+		adjFils(g,cadetx->id,parentx->ifaine,idx->ipere, idx->imere); 
+
+		if (idy->ipere == omega) parenty = getByIdent(g,idx->ipere); 
+		else if (idy->imere == omega){ parenty = getByIdent(g,idx->imere);}
+
+		adjFils(g,idy->id,parenty->ifaine,idx->ipere, idx->imere); 
+		adjFils(g,cadety->id,parenty->ifaine,idx->ipere, idx->imere); 
+
+		
+		
+	}
+	else {
+		if (idx->ipere == omega) parentx = getByIdent(g,idx->imere); 
+		else if (idx->imere == omega){ parentx = getByIdent(g,idx->ipere);}
+
+			adjFils(g,idx->id,parentx->ifaine,idx->ipere, idx->imere); 
+
+
+
+		
+		if (idy->ipere == omega) parenty = getByIdent(g,idx->ipere); 
+		else if (idy->imere == omega){ parenty = getByIdent(g,idx->imere);}
+
+		adjFils(g,idy->id,parenty->ifaine,idx->ipere, idx->imere);
+
+	}
+	
 
 }
+
+// PRE getByIdent(g,x) != NULL && !freres_soeurs(getByIdent(g,x),getByIdent(g,y)->imere)
 void devient_pere(Genealogie g, Ident x, Ident y)
 {
+	Individu pere = getByIdent(g,x); 
+	Individu fils = getByIdent(g,y); 
+
+	if (fils->icadet != NULL)
+	{
+		Individu cadet = getByIdent(g,fils->icadet); 
+		adjFils(g,fils->id,getByIdent(g,pere->ifaine),pere->id,fils->imere); // on ajoute d'abord le fils 
+		adjFils(g,cadet,getByIdent(g,pere->ifaine),pere->id,cadet->imere); // ensuite le cadet 
+	}
+	else {
+		adjFils(g,fils->id,getByIdent(g,pere->ifaine),pere->id,fils->imere);
+	}
+	
 
 }
 void devient_mere(Genealogie g, Ident x, Ident y)
 {
+	Individu mere = getByIdent(g,x); 
+	Individu fils = getByIdent(g,y); 
 
+	if (fils->icadet != NULL)
+	{
+		Individu cadet = getByIdent(g,fils->icadet); 
+		adjFils(g,fils->id,getByIdent(g,mere->ifaine),fils->ipere,mere->id); // on ajoute d'abord le fils 
+		adjFils(g,cadet,getByIdent(g,mere->ifaine),cadet->ipere,mere->id); // ensuite le cadet 
+	}
+	else {
+		adjFils(g,fils->id,getByIdent(g,mere->ifaine),fils->ipere,mere->id);
+	}
 }
 
 
@@ -453,6 +571,75 @@ void affiche_descendance(Genealogie g, Ident x, Chaine buff)
 // 
 /// VOS FONCTIONS AUXILIAIRES 
 /// ///////////////////////////////////////////////////////
+/*Nat nb_freres_soeurs(Genealogie g, Ident x) {
+    Nat nb = 0; 
+    Individu idx = getByIdent(g, x); 
+    for (Nat i = 0; i < g->nb_individus; i++) {
+        if (g->tab[i]->imere == idx->imere || g->tab[i]->ipere == idx->ipere) {    
+            nb++;  
+        }
+    }
+    return nb; 
+}
+
+Ident tab_freres_soeurs(Genealogie g, Ident x, Ident *tab_id){
+	Individu idx = getByIdent(g,x); 
+	Ent pos = 0; 
+	for ( Nat i = 0; i < g->nb_individus; i++)
+	{
+		if (g->tab[i]->imere == idx->imere || g->tab[i]->ipere == idx->ipere)
+		{	
+			tab_id[pos] = g->tab[i]->id; 
+			pos++; 
+		}
+		
+		
+	} 
+	return tab_id; 
+	
+	
+}
+
+/*Ident tab_enfant(Genealogie g, Ident x, Ident* tab_id){
+	Nat i = 0;
+	Nat nb_enfant = 0 ; 
+	Nat pos = 0; 
+	for ( i = 0; i < g->nb_individus; i++)
+	{
+		if (g->tab[i]->ipere == x || g->tab[i]->imere == x)
+		{
+			nb_enfant=+1; 
+		}
+		
+	}
+	tab_id = MALLOCN(Ident,nb_enfant); 
+
+	for ( i = 0; i < g->nb_individus; i++)
+	{
+		if (g->tab[i]->ipere == x || g->tab[i]->imere == x)
+		{
+			tab_id[pos] = g->tab[i]->id; 
+			pos++; 
+		}
+		
+	}
+}*/ 
+void afficheArbre(Genealogie g) {
+ Nat i;
+
+ printf("\n-------------------------------------------------------------\n\n");
+ printf("- Tab :\nnom[LG_MAX] naiss    deces     id  ipere  imere  icadet ifaine\n");
+ for (i = 0; i < g->nb_individus; i++) {
+ printf("%11.10s %.4d/%.2d/%.2d %.4d/%.2d/%.2d %2.2d %5.2d %5.2d %6.2d %6.2d\n", g->tab[i]->nom, g->tab[i]->naiss.annee, g->tab[i]->naiss.mois, g->tab[i]->naiss.jour, g->tab[i]->deces.annee, g->tab[i]->deces.mois, g->tab[i]->deces.jour, g->tab[i]->id, g->tab[i]->ipere, g->tab[i]->imere, g->tab[i]->icadet, g->tab[i]->ifaine);
+ }
+
+ printf("\n\n- Rang :\n");
+ for (i = 0; i < g->nb_individus; i++) {
+ printf("%d ", g->rang[i]);
+ }
+
+ printf("\n\n-------------------------------------------------------------\n\n");
+}
 /// 
 
 
@@ -518,28 +705,36 @@ int main()
 	Date hr = {19,9,1980}; 
 	Ident ihg = adj(g,"Hermione",0,0,hr,dnull); // Hermione
 
-	Date al = {15,8,2006}; 
-	Ident ia2 = adj(g,"Albus",ih,ig,al,d_null ); // Albus
 
 	Date bl = {29,11,1970}; 
 	Ident ibill = adj(g,"Bill",iaw,imw,bl,d_null); // Bill
 
-	Date js = {1,5,2005}; 
-	Ident ij = adj(g,"James",ih,ig,js,dnull); // James (son of Harry)
-
 
 	Date rs = {6,8,2006};
-	Ident irose = adj(g,"Rose",0,0,rs,d_null); // Rose
+	Ident irose = adj(g,"Rose",ir,ihg,rs,d_null); // Rose
+
+	Date al = {15,8,2006}; 
+	Ident ia2 = adj(g,"Albus",ih,ig,al,d_null ); // Albus
+
+	Date js = {1,5,2005}; 
+	Ident ij = adj(g,"James",ih,ig,js,dnull); // James (son of Harry)
 
 	for (Nat i = 0; i < cardinal(g); i++) {
 		printf("%s\n", nomIndividu(kieme(g,i)));
 	}
+
+
+	
+
+	
 	printf("nb_individus: %d\n", cardinal(g));
 	printf("Identifiant de Fabian: %u (must be 9)\n", ifab);
 	printf("Identifiant de Arthur: %u (must be 7)\n", iaw); 
+
+	
 	
 
-	/*
+
 
 	printf("\nAdding more people:\n");
 	Date dgid = { 7, 2, 1945 }; Date ddgid = { 21,12, 1982 };
@@ -599,8 +794,9 @@ int main()
 	printf("Oncles/tantes de %s:\n", nomIndividu(getByIdent(g, ir)));
 	buf[0] = 0;  affiche_oncles(g, ir, buf);
 	printf("%s\n", buf);
+	afficheArbre(g);
 
-
+/*
 	printf("\n******* les ancetres:\n");
 	printf("%s ancetre de %s: %s\n", nomIndividu(getByIdent(g, ijfl)), nomIndividu(getByIdent(g, ia2)), estAncetre(g, ijfl, ia2) ? "oui" : "non");
 	printf("%s ancetre de %s: %s\n", nomIndividu(getByIdent(g, ijfl)), nomIndividu(getByIdent(g, irose)), estAncetre(g, ijfl, irose) ? "oui" : "non");
@@ -625,6 +821,6 @@ int main()
 	printf("\n******* free:\n");
 	genealogieFree(&g);
 	printf("fin.(press key)\n");
-	fgets(buf, 2, stdin);
+	// fgets(buf, 2, stdin);
 	return 0;
 }
