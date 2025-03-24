@@ -79,9 +79,7 @@ void affiche_parente(Genealogie g, Ident x, Chaine buf);
 void affiche_descendance(Genealogie g, Ident x, Chaine buf);
 
 // PROTOTYPES DE VOS FONCTIONS INTERMEDIAIRES
-
-Bool existe_individu(Genealogie g, Chaine s, Date d_naiss); 
-
+Bool est_freres_soeurs(Genealogie g, Ident x , Ident y);
 
 
 /// PARTIE 1: Construction de l�arbre g�n�alogique et acc�s 
@@ -305,18 +303,17 @@ void adjFils(Genealogie g, Ident idx, Ident fils, Ident p, Ident m) {
         }
     }
     
-    Individu premier_fils = getByIdent(g, fils);
+    Individu aine = getByIdent(g, fils);
     
     if (fils_pere && fils_mere) {
-        // le cas où on a
-        premier_fils = (compDate(fils_pere->naiss, fils_mere->naiss) < 0) ? fils_pere : fils_mere;
+        aine = (compDate(fils_pere->naiss, fils_mere->naiss) < 0) ? fils_pere : fils_mere;
     } else if (fils_pere) {
-        premier_fils = fils_pere;
+        aine = fils_pere;
     } else if (fils_mere) {
-        premier_fils = fils_mere;
+        aine = fils_mere;
     }
     // Si aucun premier fils, on définit directement
-    if (premier_fils == NULL || compDate(enfant->naiss, premier_fils->naiss) < 0) {
+    if (aine == NULL || compDate(enfant->naiss, aine->naiss) < 0) {
         // Met à jour les liens de parentalité
         if (pere) {
             enfant->ipere = pere->id;
@@ -328,17 +325,17 @@ void adjFils(Genealogie g, Ident idx, Ident fils, Ident p, Ident m) {
         }
 
         // L'ancien premier fils devient le cadet du nouvel aîné
-        enfant->icadet = premier_fils ? premier_fils->id : omega;
+        enfant->icadet = aine ? aine->id : omega;
         return;
     }
 
     // Vérification des parents du frère aîné
-    if (pere == NULL && premier_fils->ipere != omega) {
-        pere = getByIdent(g, premier_fils->ipere);
+    if (pere == NULL && aine->ipere != omega) {
+        pere = getByIdent(g, aine->ipere);
     }
     
-    if (mere == NULL && premier_fils->imere != omega) {
-        mere = getByIdent(g, premier_fils->imere);
+    if (mere == NULL && aine->imere != omega) {
+        mere = getByIdent(g, aine->imere);
     }
 
     // Assigner les parents à l'enfant
@@ -350,10 +347,10 @@ void adjFils(Genealogie g, Ident idx, Ident fils, Ident p, Ident m) {
     }
 
     // Parcours de la liste des frères/soeurs
-    if (pere) premier_fils->ipere = pere->id;
-    if (mere) premier_fils->imere = mere->id;
+    if (pere) aine->ipere = pere->id;
+    if (mere) aine->imere = mere->id;
 
-    Individu precedent = premier_fils;
+    Individu precedent = aine;
     Individu suivant = getByIdent(g, precedent->icadet);
 
     
@@ -369,8 +366,8 @@ void adjFils(Genealogie g, Ident idx, Ident fils, Ident p, Ident m) {
     // Insérer l'enfant dans la bonne position
     enfant->icadet = precedent->icadet;
     precedent->icadet = idx;
-    if(pere && premier_fils) pere->ifaine = premier_fils->id;
-    if(mere && premier_fils) mere->ifaine = premier_fils->id;
+    if(pere && aine) pere->ifaine = aine->id;
+    if(mere && aine) mere->ifaine = aine->id;
 }
 
 
@@ -647,21 +644,159 @@ void devient_mere(Genealogie g, Ident x, Ident y)
 
 //PRE: None
 Bool estAncetre(Genealogie g, Ident x, Ident y)
-{
+{	
+
+
+	Individu ancetre = getByIdent(g,x); 
+	Individu idy = getByIdent(g,y); 
+	Individu parentCourant = NULL; 
+	if (idy->ipere != omega) 
+	{
+		parentCourant  = getByIdent(g,idy->ipere); 
+
+	Individu mere = NULL; 
+	while(parentCourant != NULL){
+		if (parentCourant == ancetre || mere == ancetre)
+		{
+			return true; 
+		}
+		mere = getByIdent(g,parentCourant->imere); 
+		parentCourant = getByIdent(g,parentCourant->ipere);
+		
+		
+	}
+	}
+	if (idy->imere != omega)
+	{
+		parentCourant = getByIdent(g,idy->imere); 
+		Individu pere = NULL; 
+
+		while (parentCourant != NULL)
+		{
+			if (parentCourant == ancetre || pere == ancetre)
+			{
+				return true;
+			}
+			pere = getByIdent(g,parentCourant->ipere); 
+			parentCourant = getByIdent(g,parentCourant->imere);
+		}
+		
+	}
+	
+
+
+
+	
+	
 	return false;
 }
 
 //PRE: None
 Bool ontAncetreCommun(Genealogie g, Ident x, Ident y)
-{
-	return false;
+{	
+
+	Individu idx = getByIdent(g,x); 
+	Individu idy = getByIdent(g,y); 
+
+	if (x == omega || y == omega)
+	{
+		return false; 
+	}
+
+	if (est_freres_soeurs(g,x,y))
+	{
+		return true; 
+	}
+	
+
+	Individu perex = getByIdent(g,idx->ipere); 
+	Individu merex = getByIdent(g, idx->imere); 
+
+	Individu perey = getByIdent(g,idy->ipere); 
+	Individu merey = getByIdent(g,idy->imere); 
+
+	
+
+	if (est_freres_soeurs(g,idx->ipere,idy->imere) || est_freres_soeurs(g,idx->ipere,idy->imere) ||
+	est_freres_soeurs(g,idx->imere,idy->imere) || est_freres_soeurs(g,idx->imere,idy->ipere))
+	{
+		return true; 
+	}
+	if (x == omega && y == omega)
+	{
+		ontAncetreCommun(g,perex->id,perey->id);
+		ontAncetreCommun(g,merex->id,merey->id); 
+	}
+	return false; 
+	
+
 }
 
 //PRE: None
-Ident plus_ancien(Genealogie g, Ident x)
-{
-	return omega;
+Ident plus_ancien(Genealogie g, Ident x) {    
+    Individu idx = getByIdent(g, x); 
+    Individu pere = getByIdent(g, idx->ipere); 
+    Individu mere = getByIdent(g, idx->imere); 
+    Date dateMax = {31, 12, 9999}; 
+    Individu plus_ancien = NULL;  
+
+    if (pere != NULL) {
+        while (pere != NULL) {
+
+            Date temp;
+            if (mere == NULL) {
+                // Si la mère est NULL, on compare avec le père uniquement
+                temp = pere->naiss;
+                if (compDate(temp, dateMax) < 0) {
+                    dateMax = temp;
+                    plus_ancien = pere;  // Le père devient le plus ancien
+                }
+            } else {
+                // Comparaison des dates du père et de la mère
+                temp = compDate(pere->naiss, mere->naiss) < 0 ? pere->naiss : mere->naiss;
+                if (compDate(temp, dateMax) < 0) {
+                    dateMax = temp;
+                    plus_ancien = (compDate(pere->naiss, mere->naiss) < 0) ? pere : mere;
+                }
+            }
+
+
+            mere = getByIdent(g, pere->imere); 
+            pere = getByIdent(g, pere->ipere); 
+        }
+    }
+
+
+    if (mere != NULL) {
+        while (mere != NULL) {
+
+            Date temp;
+            if (pere == NULL) {
+                // Si le père est NULL, on compare avec la mère uniquement
+                temp = mere->naiss;
+                if (compDate(temp, dateMax) < 0) {
+                    dateMax = temp;
+                    plus_ancien = mere;  // La mère devient la plus ancienne
+                }
+            } else {
+                // Comparaison des dates du père et de la mère
+                temp = compDate(pere->naiss, mere->naiss) < 0 ? pere->naiss : mere->naiss;
+                if (compDate(temp, dateMax) < 0) {
+                    dateMax = temp;
+                    plus_ancien = (compDate(pere->naiss, mere->naiss) < 0) ? pere : mere;
+                }
+            }
+
+            pere = getByIdent(g, mere->ipere); 
+            mere = getByIdent(g, mere->imere); 
+        }
+    }
+
+        return plus_ancien->id;  
+
 }
+
+
 
 //PRE: None
 void affiche_parente(Genealogie g, Ident x, Chaine buff)
@@ -699,6 +834,38 @@ void afficheArbre(Genealogie g) {
 }
 /// 
 
+Bool est_freres_soeurs(Genealogie g, Ident x, Ident y){
+
+	Individu idx = getByIdent(g,x); 
+	Individu idy = getByIdent(g,y); 
+	return idx->imere == idy->ipere || idx->ipere == idy->ipere; 
+	
+}
+
+Individu getByDate(Genealogie g, Date d){
+	Ent droite = g->nb_individus; 
+	Ent gauche = 0; 
+	Ent milieu ;
+
+	while (gauche < droite)
+	{
+		milieu = (gauche + droite)/2; 
+		if (compDate(d,g->tab[milieu]->naiss) == 0)
+		{
+			return g->tab[milieu]; 
+		}
+		else if (compDate(d,g->tab[milieu]->naiss) < 0)
+		{
+			droite = milieu; 
+		}
+		else {
+			gauche = milieu;  
+		}
+		
+		
+	}
+	
+}
 
 // 
 /// MAIN
@@ -832,7 +999,6 @@ int main()
 	else printf("what? no Albus! There is a serious problem here...\n");
 	printf("Now nb_individus: %d\n", cardinal(g));
 
-	afficheArbre(g);
 
 	printf("\n******* fratrie:\n");
 	printf("Freres/Soeurs de %s:\n", nomIndividu(getByIdent(g, ig)));
@@ -865,11 +1031,10 @@ int main()
 	printf("Oncles/tantes de %s:\n", nomIndividu(getByIdent(g, ir)));
 	buf[0] = 0;  affiche_oncles(g, ir, buf);
 	printf("%s\n", buf);
-	afficheArbre(g);
 
 
 
-/*
+
 	printf("\n******* les ancetres:\n");
 	printf("%s ancetre de %s: %s\n", nomIndividu(getByIdent(g, ijfl)), nomIndividu(getByIdent(g, ia2)), estAncetre(g, ijfl, ia2) ? "oui" : "non");
 	printf("%s ancetre de %s: %s\n", nomIndividu(getByIdent(g, ijfl)), nomIndividu(getByIdent(g, irose)), estAncetre(g, ijfl, irose) ? "oui" : "non");
@@ -880,7 +1045,7 @@ int main()
 
 	printf("\n******* ancetre plus ancien:\n");
 	printf("L'ancetre le plus ancien de %s est %s\n", nomIndividu(getByIdent(g, ia2)), nomIndividu(getByIdent(g, plus_ancien(g, ia2))));
-
+/*
 	printf("\n******* parente:\n");
 	printf("parents de %s\n", nomIndividu(getByIdent(g, ia2)));
 	buf[0] = 0; affiche_parente(g, ia2, buf);
@@ -891,9 +1056,12 @@ int main()
 	buf[0] = 0;  affiche_descendance(g, ijm, buf);
 	printf("%s\n", buf); 
 	*/
+
+	afficheArbre(g);
 	printf("\n******* free:\n");
 	genealogieFree(&g);
 	printf("fin.(press key)\n");
 	// fgets(buf, 2, stdin);
+
 	return 0;
 }
