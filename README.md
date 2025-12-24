@@ -4,7 +4,11 @@
 > *Université de Strasbourg - 2024/2025*
 
 Ce projet implémente un système complet de gestion d'arbres généalogiques en langage C "strict". Il a été conçu pour manipuler des structures de données complexes, gérer la mémoire manuellement et optimiser les temps d'accès aux données.
-
+## compilation et testes : 
+```
+gcc -Wall -Wextra -ansi -pedantic genealogie.c -o genealogie
+```
+Après cela il suffit juste d'exécuter l'exécutable 
 ## 📋 Description
 
 L'application permet de construire, mettre à jour et interroger une base de données généalogique où les liens de parenté (parents, enfants, fratries) sont maintenus dynamiquement.
