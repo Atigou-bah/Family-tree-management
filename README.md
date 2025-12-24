@@ -51,7 +51,11 @@ typedef struct s_individu {
 } *Individu;
 
 typedef struct s_genealogie {
-    Individu *tab;     // Tableau dynamique des individus (trié par nom)
-    Ident *rang;       // Table de correspondance ID -> Index dans tab
-    // ... champs de gestion de taille
-} Genealogie;
+	Individu* tab;				// tableau des individus tri�s par nom
+	Nat nb_individus;
+	Ident id_cur;
+	Nat taille_max_tab;
+	Ident* rang;
+	Nat taille_max_rang;
+} *Genealogie;
+
